@@ -117,3 +117,21 @@ export const ColorChangingCube: Story = {
     </motion.mesh>
   ),
 };
+
+export const RestDelta: Story = {
+  render: () => (
+    <motion.mesh
+      initial={{ z: -100 }}
+      animate={{ z: 2 }}
+      transition={{
+        type: "spring",
+        damping: 50,
+        stiffness: 100,
+        restDelta: 0.001,
+      }}
+    >
+      <boxGeometry args={[1, 1, 1]} />
+      <motion.meshStandardMaterial color="hotpink" />
+    </motion.mesh>
+  ),
+};

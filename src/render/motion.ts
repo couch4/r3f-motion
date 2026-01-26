@@ -212,6 +212,8 @@ function custom<Props>(Component: string) {
               "stiffness",
               "damping",
               "mass",
+              "restDelta",
+              "restSpeed",
             ];
             return Object.assign(
               base,
