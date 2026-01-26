@@ -3,9 +3,12 @@ import * as THREE from "three";
 import type { ForwardRefExoticComponent, PropsWithoutRef, RefAttributes } from "react";
 import type { MotionValue, ResolvedValues, MotionProps } from "motion/react";
 export type ThreeElement = InstanceType<typeof THREE.Object3D> & Record<string, unknown>;
-export interface ThreeMotionProps extends Omit<MotionProps, "style" | "children"> {
+export interface ThreeMotionProps extends Omit<MotionProps, "style" | "children" | "onUpdate" | "onAnimationStart" | "onAnimationComplete"> {
     [key: string]: unknown;
     onInstanceUpdate?: ReactThreeFiber.ThreeElements["object3D"]["onUpdate"];
+    onUpdate?: (values: Record<string, unknown>, animationVariant?: string) => void;
+    onAnimationStart?: (values: Record<string, unknown>, animationVariant?: string) => void;
+    onAnimationComplete?: (values: Record<string, unknown>, animationVariant?: string) => void;
 }
 export interface ThreeRenderState {
     [key: string]: unknown;

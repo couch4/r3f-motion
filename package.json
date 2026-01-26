@@ -1,6 +1,6 @@
 {
   "name": "r3f-motion",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "A simple and powerful React animation library for @react-three/fiber leveraging motion.dev",
   "main": "dist/cjs/index.js",
   "module": "dist/es/index.mjs",
@@ -30,7 +30,7 @@
   "type": "module",
   "repository": {
     "type": "git",
-    "url": "https://github.com/couch4/r3f-motion.git"
+    "url": "git+https://github.com/couch4/r3f-motion.git"
   },
   "author": "Jon Couch",
   "license": "MIT",
@@ -46,7 +46,7 @@
     "clean": "rm -rf types dist lib",
     "prettier": "prettier ./src/* --write",
     "watch": "concurrently -c blue,red -n tsc,rollup --kill-others \"tsc --watch -p . --preserveWatchOutput\" \"rollup --config --watch --no-watch.clearScreen\"",
-    "prepack": "bun build",
+    "prepack": "bun run build",
     "postpublish": "git push --tags"
   },
   "dependencies": {
@@ -55,11 +55,12 @@
   },
   "peerDependencies": {
     "@react-three/fiber": "^9.5.0",
-    "react": "^19.2.3",
-    "react-dom": "^19.2.3",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0",
     "three": "^0.182.0"
   },
   "devDependencies": {
+    "@eslint/js": "^9.39.1",
     "@react-three/drei": "^10.7.7",
     "@react-three/fiber": "^9.5.0",
     "@react-three/test-renderer": "^9.1.0",
@@ -68,13 +69,20 @@
     "@rollup/plugin-typescript": "^12.3.0",
     "@storybook/react": "^10.2.0",
     "@storybook/react-vite": "^10.2.0",
+    "@storybook/test": "^8.6.15",
     "@testing-library/react": "^16.3.2",
+    "@types/node": "^24.10.1",
     "@types/react": "^19.2.9",
     "@types/react-dom": "^19.2.3",
     "@types/three": "^0.182.0",
+    "@vitejs/plugin-react": "^5.1.1",
     "@vitest/ui": "^4.0.18",
     "concurrently": "^9.2.1",
     "eslint": "^9.39.2",
+    "eslint-plugin-react-hooks": "^7.0.1",
+    "eslint-plugin-react-refresh": "^0.4.24",
+    "eslint-plugin-storybook": "^10.2.0",
+    "globals": "^16.5.0",
     "jsdom": "^27.4.0",
     "prettier": "^3.8.1",
     "rollup": "^4.56.0",
@@ -82,17 +90,9 @@
     "scheduler": "^0.27.0",
     "storybook": "^10.2.0",
     "typescript": "^5.9.3",
-    "vitest": "^4.0.18",
-    "@eslint/js": "^9.39.1",
-    "@storybook/test": "^8.6.15",
-    "@types/node": "^24.10.1",
-    "@vitejs/plugin-react": "^5.1.1",
-    "eslint-plugin-react-hooks": "^7.0.1",
-    "eslint-plugin-react-refresh": "^0.4.24",
-    "eslint-plugin-storybook": "^10.2.0",
-    "globals": "^16.5.0",
     "typescript-eslint": "^8.46.4",
-    "vite": "^7.2.4"
+    "vite": "^7.2.4",
+    "vitest": "^4.0.18"
   },
   "gitHead": "b40bbecf29630ba30d49f763642eb3314861f08c"
 }

@@ -1,6 +1,7 @@
 import { MotionProps } from "motion/react";
 import {
   useRef,
+  memo,
   forwardRef,
   useEffect,
   useCallback,
@@ -14,6 +15,12 @@ import type { ThreeMotionComponents, ThreeElement } from "../types";
 import { useRender } from "./use-render";
 import { useHover } from "./gestures/use-hover";
 import { useTap } from "./gestures/use-tap";
+import {
+  createAnimationState,
+  createCallbackOptions,
+  registerAnimation,
+  type AnimationCallbacks,
+} from "./events";
 
 interface MotionContextValue {
   initial?: unknown;
@@ -36,6 +43,13 @@ interface AnimationControl {
   stop: () => void;
 }
 
+type R3FMotionProps = MotionProps & {
+  onAnimationUpdate?: (
+    values: Record<string, unknown>,
+    variant?: string,
+  ) => void;
+};
+
 const MotionContext = createContext<MotionContextValue | null>(null);
 
 function custom<Props>(Component: string) {
@@ -44,6 +58,8 @@ function custom<Props>(Component: string) {
       const instanceRef = useRef<ThreeElement | null>(null);
       const animationRef = useRef<AnimationControl | null>(null);
       const childIndexCounterRef = useRef<number>(0);
+      const animStateRef = useRef(createAnimationState());
+      const callbacksRef = useRef<AnimationCallbacks | undefined>(undefined);
 
       const parentContext = useContext(MotionContext);
       const childIndex = useMemo(
@@ -60,8 +76,11 @@ function custom<Props>(Component: string) {
         custom,
         inherit = true,
         children,
+        onAnimationUpdate,
+        onAnimationStart,
+        onAnimationComplete,
         ...restProps
-      } = props as Props & MotionProps;
+      } = props as Props & R3FMotionProps;
 
       const initial =
         initialProp !== undefined
@@ -75,6 +94,30 @@ function custom<Props>(Component: string) {
         variants || (inherit ? parentContext?.variants : undefined);
       const effectiveCustom =
         custom !== undefined ? custom : parentContext?.custom;
+
+      // Update callbacks ref on every render
+      if (onAnimationUpdate || onAnimationStart || onAnimationComplete) {
+        const typedCallbacks: AnimationCallbacks = {};
+        if (onAnimationUpdate) {
+          typedCallbacks.onAnimationUpdate = onAnimationUpdate as (
+            value?: unknown,
+            variant?: string,
+          ) => void;
+        }
+        if (onAnimationStart) {
+          typedCallbacks.onAnimationStart = onAnimationStart as (
+            variant?: string,
+          ) => void;
+        }
+        if (onAnimationComplete) {
+          typedCallbacks.onAnimationComplete = onAnimationComplete as (
+            variant?: string,
+          ) => void;
+        }
+        callbacksRef.current = typedCallbacks;
+      } else {
+        callbacksRef.current = undefined;
+      }
 
       const resolveVariant = useCallback(
         (variantKey: string) => {
@@ -128,11 +171,24 @@ function custom<Props>(Component: string) {
         (
           targetValues: Record<string, unknown>,
           options?: Record<string, unknown>,
+          useCallbacks = false,
         ) => {
           const instance = instanceRef.current;
           if (!instance || !targetValues) return;
 
           animationRef.current?.stop();
+
+          // Reset animation state when using callbacks
+          if (useCallbacks) {
+            animStateRef.current = createAnimationState();
+          }
+
+          const animState = animStateRef.current;
+          const callbacks = useCallbacks ? callbacksRef.current : undefined;
+          const animateVariant = animate as
+            | string
+            | Record<string, unknown>
+            | undefined;
 
           const convertOptions = (
             opts?: Record<string, unknown>,
@@ -188,10 +244,33 @@ function custom<Props>(Component: string) {
 
           const animations: Array<{ stop?: () => void }> = [];
 
+          // Helper to create animation with optional callbacks
+          const createAnimation = (
+            target: Record<string, unknown>,
+            props: Record<string, unknown>,
+            opts: Record<string, unknown>,
+            propertyKey: string,
+          ) => {
+            const animOpts = callbacks
+              ? createCallbackOptions(
+                  opts,
+                  callbacks,
+                  animState,
+                  animateVariant,
+                  propertyKey,
+                )
+              : opts;
+            animations.push(animateFn(target, props, animOpts));
+            if (callbacks) {
+              registerAnimation(animState);
+            }
+          };
+
           const animateColor = (
             target: unknown,
             value: unknown,
             opts: Record<string, unknown>,
+            key: string,
           ) => {
             const ColorConstructor = (
               target as {
@@ -204,12 +283,11 @@ function custom<Props>(Component: string) {
             ).constructor;
             const tempColor = new ColorConstructor(value);
             ["r", "g", "b"].forEach((channel) =>
-              animations.push(
-                animateFn(
-                  target as Record<string, unknown>,
-                  { [channel]: tempColor[channel as keyof typeof tempColor] },
-                  opts,
-                ),
+              createAnimation(
+                target as Record<string, unknown>,
+                { [channel]: tempColor[channel as keyof typeof tempColor] },
+                opts,
+                key,
               ),
             );
           };
@@ -221,67 +299,61 @@ function custom<Props>(Component: string) {
             if (mapping?.target) {
               if (mapping.multi) {
                 ["x", "y", "z"].forEach((axis) =>
-                  animations.push(
-                    animateFn(
-                      mapping.target as Record<string, unknown>,
-                      { [axis]: value },
-                      opts,
-                    ),
+                  createAnimation(
+                    mapping.target as Record<string, unknown>,
+                    { [axis]: value },
+                    opts,
+                    key,
                   ),
                 );
               } else {
-                animations.push(
-                  animateFn(
-                    mapping.target as Record<string, unknown>,
-                    { [mapping.prop]: value },
-                    opts,
-                  ),
+                createAnimation(
+                  mapping.target as Record<string, unknown>,
+                  { [mapping.prop]: value },
+                  opts,
+                  key,
                 );
               }
             } else if (key === "color" && instance.color) {
-              animateColor(instance.color, value, opts);
+              animateColor(instance.color, value, opts, key);
             } else if (key === "emissive" && instance.emissive) {
-              animateColor(instance.emissive, value, opts);
+              animateColor(instance.emissive, value, opts, key);
             } else if (key === "opacity" && instance.opacity !== undefined) {
-              animations.push(
-                animateFn(
-                  instance as Record<string, unknown>,
-                  { opacity: value },
-                  opts,
-                ),
+              createAnimation(
+                instance as Record<string, unknown>,
+                { opacity: value },
+                opts,
+                key,
               );
             } else if (
               key === "emissiveIntensity" &&
               instance.emissiveIntensity !== undefined
             ) {
-              animations.push(
-                animateFn(
-                  instance as Record<string, unknown>,
-                  { emissiveIntensity: value },
-                  opts,
-                ),
+              createAnimation(
+                instance as Record<string, unknown>,
+                { emissiveIntensity: value },
+                opts,
+                key,
               );
             } else if (
               key === "roughness" &&
               instance.roughness !== undefined
             ) {
-              animations.push(
-                animateFn(
-                  instance as Record<string, unknown>,
-                  { roughness: value },
-                  opts,
-                ),
+              createAnimation(
+                instance as Record<string, unknown>,
+                { roughness: value },
+                opts,
+                key,
               );
             } else if (
               key === "metalness" &&
               instance.metalness !== undefined
             ) {
-              animations.push(
-                animateFn(
-                  instance as Record<string, unknown>,
-                  { metalness: value },
-                  opts,
-                ),
+              createAnimation(
+                instance as Record<string, unknown>,
+                { metalness: value },
+                opts,
+                key,
               );
             }
           });
@@ -325,16 +397,12 @@ function custom<Props>(Component: string) {
         animateToTarget(
           targetValues,
           effectiveTransition as Record<string, unknown>,
+          true, // Enable callbacks for main animations
         );
+
         return () => animationRef.current?.stop();
-      }, [
-        animate,
-        transition,
-        resolveVariant,
-        animateToTarget,
-        childIndex,
-        parentContext,
-      ]);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+      }, [animate]);
 
       const gestureProps = {
         instanceRef,
@@ -347,12 +415,12 @@ function custom<Props>(Component: string) {
       const gestureHandlers = {
         ...useHover(
           false,
-          props as Props & MotionProps & Record<string, unknown>,
+          props as Props & Record<string, unknown>,
           gestureProps,
         ),
         ...useTap(
           false,
-          props as Props & MotionProps & Record<string, unknown>,
+          props as Props & Record<string, unknown>,
           gestureProps,
         ),
       };
@@ -396,7 +464,7 @@ function custom<Props>(Component: string) {
 
   MotionComponent.displayName = `Motion(${Component})`;
 
-  return MotionComponent;
+  return memo(MotionComponent);
 }
 
 const componentCache = new Map<string, ReturnType<typeof custom>>();

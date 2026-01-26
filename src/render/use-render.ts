@@ -3,6 +3,7 @@ import {
   useCallback,
   ForwardedRef,
   MutableRefObject,
+  useRef,
 } from "react";
 import type { ThreeElement } from "../types";
 import { Color } from "three";
@@ -17,6 +18,8 @@ export const useRender = (
   instanceRef: MutableRefObject<ThreeElement | null>,
   initialValues?: Record<string, unknown>,
 ) => {
+  const initialValuesAppliedRef = useRef(false);
+
   /**
    * Create a callback ref that captures the Three.js instance
    */
@@ -24,8 +27,9 @@ export const useRender = (
     (instance: ThreeElement | null) => {
       if (!instance) return;
 
-      // Apply initial values immediately to prevent FOUC
-      if (initialValues) {
+      // Apply initial values immediately to prevent FOUC - but only once
+      if (initialValues && !initialValuesAppliedRef.current) {
+        initialValuesAppliedRef.current = true;
         // Property mapping configuration
         const propertyMap: Record<string, PropertySetter> = {
           x: (val) =>

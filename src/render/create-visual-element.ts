@@ -3,10 +3,15 @@ import type {
   ResolvedValues,
   MotionProps,
   VisualElementOptions,
+  MotionValue,
 } from "motion/react";
 
 import { createBox, VisualElement } from "motion/react";
-import type { ThreeElement, ThreeRenderState } from "../types";
+import type {
+  ThreeElement,
+  ThreeRenderState,
+  ThreeMotionProps,
+} from "../types";
 
 import { setThreeValue } from "./utils/set-value";
 import { readThreeValue } from "./utils/read-value";
@@ -49,7 +54,10 @@ export class ThreeVisualElement extends VisualElement<
   }
 
   scrapeMotionValuesFromProps(props: MotionProps, prevProps: MotionProps) {
-    return scrapeMotionValuesFromProps(props, prevProps);
+    return scrapeMotionValuesFromProps(
+      props as unknown as ThreeMotionProps,
+      prevProps as unknown as ThreeMotionProps,
+    ) as Record<string, MotionValue>;
   }
 
   build(state: ThreeRenderState, latestValues: ResolvedValues) {

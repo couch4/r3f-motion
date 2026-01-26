@@ -1,4 +1,4 @@
-import type { TargetAndTransition, ResolvedValues, MotionProps, VisualElementOptions } from "motion/react";
+import type { TargetAndTransition, ResolvedValues, MotionProps, VisualElementOptions, MotionValue } from "motion/react";
 import { VisualElement } from "motion/react";
 import type { ThreeElement, ThreeRenderState } from "../types";
 export declare const createRenderState: () => ThreeRenderState;
@@ -714,9 +714,7 @@ export declare class ThreeVisualElement extends VisualElement<ThreeElement, Thre
     };
     removeValueFromRenderState(): void;
     measureInstanceViewportBox(): import("motion-utils").Box;
-    scrapeMotionValuesFromProps(props: MotionProps, prevProps: MotionProps): {
-        [key: string]: import("motion-dom").AnyResolvedKeyframe | import("motion-dom").MotionValue<any>;
-    };
+    scrapeMotionValuesFromProps(props: MotionProps, prevProps: MotionProps): Record<string, MotionValue>;
     build(state: ThreeRenderState, latestValues: ResolvedValues): void;
     renderInstance(instance: ThreeElement, renderState: ThreeRenderState): void;
 }

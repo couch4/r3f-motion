@@ -1,5 +1,4 @@
 import { isMotionValue } from "motion/react";
-import type { ScrapeMotionValuesFromProps } from "motion/react";
 import { ThreeMotionProps } from "../../types";
 
 const axes = ["x", "y", "z"];
@@ -16,11 +15,11 @@ const valueMap: Record<string, string> = {
   "scale-z": "scaleZ",
 };
 
-export const scrapeMotionValuesFromProps: ScrapeMotionValuesFromProps = (
+export const scrapeMotionValuesFromProps = (
   props: ThreeMotionProps,
   prevProps: ThreeMotionProps,
 ) => {
-  const motionValues: Record<string, any> = {};
+  const motionValues: Record<string, unknown> = {};
 
   for (const key in props) {
     const prop = props[key];

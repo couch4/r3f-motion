@@ -4,10 +4,20 @@ import { motion } from "../src/render/motion";
 import { motion as htmlMotion } from "motion/react";
 import Scene from "./SharedScene";
 
+// Wrapper component for documentation purposes
+const MotionGroup = motion.group;
+
 const meta = {
   title: "Motion3D/MotionGroup",
+  component: MotionGroup,
   parameters: {
     layout: "fullscreen",
+    docs: {
+      description: {
+        component:
+          "Demonstrates motion.group for orchestrating animations across multiple child objects. Groups support variants, staggering, delayChildren, and custom props for coordinated animations.",
+      },
+    },
   },
   decorators: [
     (Story) => (
@@ -18,12 +28,43 @@ const meta = {
       </div>
     ),
   ],
-} satisfies Meta;
+  argTypes: {
+    initial: {
+      description: "Initial animation values or variant name",
+      control: "object",
+    },
+    animate: {
+      description: "Target animation values or variant name",
+      control: "object",
+    },
+    variants: {
+      description: "Named animation variants that children can inherit",
+      control: "object",
+    },
+    transition: {
+      description:
+        "Animation transition configuration. Supports delayChildren and staggerChildren for orchestration",
+      control: "object",
+    },
+    custom: {
+      description: "Custom data passed to variant functions",
+      control: false,
+    },
+  },
+} satisfies Meta<typeof MotionGroup>;
 
 export default meta;
 type Story = StoryObj<typeof meta>;
 
 export const RotatingGroup: Story = {
+  parameters: {
+    docs: {
+      description: {
+        story:
+          "A simple rotating group containing multiple meshes. All children rotate together as the group animates.",
+      },
+    },
+  },
   render: () => (
     <Scene>
       <motion.group
@@ -49,6 +90,14 @@ export const RotatingGroup: Story = {
 };
 
 export const StaggeredGroup: Story = {
+  parameters: {
+    docs: {
+      description: {
+        story:
+          "Demonstrates staggerChildren and delayChildren in the group transition. Each child animates with a delay, creating a staggered effect.",
+      },
+    },
+  },
   render: () => (
     <Scene>
       <motion.group
@@ -106,6 +155,14 @@ export const StaggeredGroup: Story = {
 };
 
 export const OrbitingGroup: Story = {
+  parameters: {
+    docs: {
+      description: {
+        story:
+          "A group that rotates while its children animate in with staggered delays. Demonstrates combining group and child animations.",
+      },
+    },
+  },
   render: () => (
     <Scene>
       <motion.group
@@ -142,6 +199,14 @@ export const OrbitingGroup: Story = {
 };
 
 export const WaveGroup: Story = {
+  parameters: {
+    docs: {
+      description: {
+        story:
+          "Creates a wave effect by animating multiple meshes with staggered delays. Each mesh bounces up and down in sequence.",
+      },
+    },
+  },
   render: () => (
     <Scene>
       <motion.group>
@@ -174,6 +239,14 @@ const transition = {
 };
 
 export const InheritedVariants: Story = {
+  parameters: {
+    docs: {
+      description: {
+        story:
+          "Demonstrates variant inheritance. The group defines variants that children inherit and extend with their own variant definitions.",
+      },
+    },
+  },
   render: () => (
     <Scene>
       <motion.group
@@ -233,6 +306,14 @@ const externalVariants = {
 };
 
 export const CustomProp: Story = {
+  parameters: {
+    docs: {
+      description: {
+        story:
+          "Demonstrates the custom prop with function variants. Each child receives a custom value (its index) that the variant function uses to calculate unique delays.",
+      },
+    },
+  },
   render: () => (
     <Scene>
       <motion.group initial="inactive" animate="active">
