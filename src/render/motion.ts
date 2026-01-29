@@ -364,7 +364,7 @@ function custom<Props>(Component: string) {
             stop: () => animations.forEach((anim) => anim.stop?.()),
           };
         },
-        [],
+        [animate],
       );
 
       useEffect(() => {

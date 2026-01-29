@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import Scene from "./SharedScene";
 import { motion } from "../src/render/motion";
@@ -248,6 +248,88 @@ export const OnAnimationComplete: Story = {
               },
             }}
             transition={transition}
+            onAnimationComplete={handleComplete}
+          >
+            <boxGeometry args={[1, 1, 1]} />
+            <meshStandardMaterial color="fuchsia" />
+          </motion.mesh>
+        </Scene>
+      </>
+    );
+  },
+};
+
+const steps = ["one", "two", "three"];
+
+export const OnAnimationCycleVariants: Story = {
+  parameters: {
+    docs: {
+      description: {
+        story:
+          "Demonstrates the onAnimationComplete callback, which fires once when the animation finishes. The callback receives the final values and optional variant name.",
+      },
+    },
+  },
+  render: () => {
+    const [startStatus, setStartStatus] = useState<string | null>("false");
+    const [status, setStatus] = useState<string | null>("false");
+    const [currentStep, setCurrentStep] = useState<number>(0);
+
+    const handleStart = (variant?: string) => {
+      setStartStatus(`Variant: ${variant || "none"}`);
+    };
+
+    const handleComplete = (variant?: string) => {
+      setStatus(`Variant: ${variant || "none"}`);
+      setTimeout(() => {
+        setCurrentStep(currentStep > steps.length - 2 ? 0 : currentStep + 1);
+      }, 1000);
+    };
+
+    return (
+      <>
+        <div
+          style={{
+            position: "absolute",
+            bottom: 20,
+            left: 20,
+            color: "white",
+            fontFamily: "monospace",
+            fontSize: 16,
+            zIndex: 1000,
+            background: "rgba(0,0,0,0.7)",
+            padding: "10px 20px",
+            borderRadius: 8,
+          }}
+          dangerouslySetInnerHTML={{
+            __html: ` Animation Start: <strong>${startStatus}</strong><br/>Animation Complete: <strong>${status}</strong> `,
+          }}
+        ></div>
+        <Scene>
+          <motion.mesh
+            initial="one"
+            animate={steps[currentStep]}
+            variants={{
+              one: {
+                scale: 0,
+                rotateY: 0,
+                y: 0,
+              },
+              two: {
+                scale: 2,
+                rotateY: Math.PI * 0.5,
+                rotateX: Math.PI * 0.5,
+                y: 1.5,
+              },
+              three: {
+                scale: 1,
+                rotateY: Math.PI * 1,
+                rotateX: Math.PI * 1,
+                y: 1,
+              },
+            }}
+            transition={transition}
+            onAnimationStart={handleStart}
             onAnimationComplete={handleComplete}
           >
             <boxGeometry args={[1, 1, 1]} />
