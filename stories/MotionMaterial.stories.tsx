@@ -1,5 +1,8 @@
+import { useState, useMemo } from "react";
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { motion } from "../src/render/motion";
+import * as THREE from "three";
+import { Html } from "@react-three/drei";
 import Scene from "./SharedScene";
 
 const MotionMaterial = motion.meshStandardMaterial;
@@ -325,4 +328,187 @@ export const VariantsMaterial: Story = {
       />
     </motion.mesh>
   ),
+};
+
+export const ShaderMaterialUniforms: Story = {
+  parameters: {
+    docs: {
+      description: {
+        story:
+          "Demonstrates animating ShaderMaterial uniforms using motion.shaderMaterial. The uTime and uIntensity uniforms are animated with motion's animate prop.",
+      },
+    },
+  },
+  render: () => {
+    const uniforms = useMemo(
+      () => ({
+        uTime: { value: 0 },
+        uIntensity: { value: 0.5 },
+        uColor: { value: new THREE.Color(1, 0.5, 0) },
+      }),
+      [],
+    );
+
+    return (
+      <motion.mesh>
+        <planeGeometry args={[2, 2]} />
+        <motion.shaderMaterial
+          vertexShader={`
+            varying vec2 vUv;
+            void main() {
+              vUv = uv;
+              gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+            }
+          `}
+          fragmentShader={`
+            uniform float uTime;
+            uniform float uIntensity;
+            uniform vec3 uColor;
+            varying vec2 vUv;
+            void main() {
+              vec2 center = vec2(0.5, 0.5);
+              float dist = distance(vUv, center);
+              float pulse = sin(uTime * 2.0) * 0.5 + 0.5;
+              float wave = sin(dist * 10.0 - uTime * 3.0) * 0.5 + 0.5;
+              float effect = (pulse * 0.3 + wave * 0.7) * uIntensity;
+              float gradient = 1.0 - smoothstep(0.0, 0.5, dist);
+              vec3 finalColor = uColor * gradient * effect;
+              gl_FragColor = vec4(finalColor, 1.0);
+            }
+          `}
+          uniforms={uniforms}
+          initial={{ uTime: 0, uIntensity: 0.5 }}
+          animate={{ uTime: Math.PI * 2, uIntensity: 1.5 }}
+          transition={{
+            duration: 3,
+            repeat: Infinity,
+            repeatType: "reverse",
+            ease: "easeInOut",
+          }}
+          side={THREE.DoubleSide}
+        />
+      </motion.mesh>
+    );
+  },
+};
+
+function VariantShaderPlane({
+  variant,
+}: {
+  variant: "idle" | "active" | "pulse";
+}) {
+  const uniforms = useMemo(
+    () => ({
+      uTime: { value: 0 },
+      uIntensity: { value: 0.3 },
+      uFrequency: { value: 5 },
+    }),
+    [],
+  );
+
+  return (
+    <motion.mesh>
+      <planeGeometry args={[2, 2]} />
+      <motion.shaderMaterial
+        vertexShader={`
+          varying vec2 vUv;
+          void main() {
+            vUv = uv;
+            gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+          }
+        `}
+        fragmentShader={`
+          uniform float uTime;
+          uniform float uIntensity;
+          uniform float uFrequency;
+          varying vec2 vUv;
+          void main() {
+            vec2 center = vec2(0.5, 0.5);
+            float dist = distance(vUv, center);
+            float wave = sin(dist * uFrequency - uTime * 3.0) * 0.5 + 0.5;
+            float gradient = 1.0 - smoothstep(0.0, 0.6, dist);
+            float brightness = wave * gradient * uIntensity;
+            vec3 color = mix(vec3(0.0, 0.4, 1.0), vec3(1.0, 0.2, 0.8), wave);
+            gl_FragColor = vec4(color * brightness, 1.0);
+          }
+        `}
+        uniforms={uniforms}
+        initial="idle"
+        animate={variant}
+        variants={{
+          idle: {
+            uTime: 0,
+            uIntensity: 0.3,
+            uFrequency: 5,
+            transition: { ...transition, repeat: false },
+          },
+          active: {
+            uTime: Math.PI * 2,
+            uIntensity: 1.5,
+            uFrequency: 12,
+            transition,
+          },
+          pulse: {
+            uTime: Math.PI * 4,
+            uIntensity: 2.5,
+            uFrequency: 25,
+            transition: { ...transition, repeatType: "forwards" },
+          },
+        }}
+        side={THREE.DoubleSide}
+      />
+    </motion.mesh>
+  );
+}
+
+export const ShaderMaterialVariants: Story = {
+  parameters: {
+    docs: {
+      description: {
+        story:
+          "Demonstrates named variants with ShaderMaterial uniforms. Click the buttons to switch between idle, active, and pulse states — each defining different uniform values that animate smoothly.",
+      },
+    },
+  },
+  render: () => {
+    const [variant, setVariant] = useState<"idle" | "active" | "pulse">("idle");
+
+    return (
+      <>
+        <Html fullscreen style={{ pointerEvents: "none" }}>
+          <div
+            style={{
+              position: "absolute",
+              top: 20,
+              left: 20,
+              zIndex: 1000,
+              display: "flex",
+              gap: 10,
+              pointerEvents: "auto",
+            }}
+          >
+            {(["idle", "active", "pulse"] as const).map((v) => (
+              <button
+                key={v}
+                onClick={() => setVariant(v)}
+                style={{
+                  padding: "10px 20px",
+                  fontSize: 15,
+                  borderRadius: 8,
+                  border: "none",
+                  background: variant === v ? "#3498db" : "#444",
+                  color: "white",
+                  cursor: "pointer",
+                  textTransform: "capitalize",
+                }}
+              >
+                {v}
+              </button>
+            ))}
+          </div>
+        </Html>
+        <VariantShaderPlane variant={variant} />
+      </>
+    );
+  },
 };

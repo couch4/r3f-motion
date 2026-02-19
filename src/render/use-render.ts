@@ -70,6 +70,19 @@ export const useRender = (
             if (colorProp && colorProp.set) {
               colorProp.set(initialValues[key] as ColorRepresentation);
             }
+          } else if (
+            instance.uniforms &&
+            (instance.uniforms as Record<string, unknown>)[key] &&
+            typeof (
+              (instance.uniforms as Record<string, Record<string, unknown>>)[
+                key
+              ] as Record<string, unknown>
+            )?.value === "number"
+          ) {
+            // Set ShaderMaterial uniform initial value
+            (instance.uniforms as Record<string, Record<string, unknown>>)[
+              key
+            ].value = initialValues[key];
           } else if (key in instance && typeof instance[key] === "number") {
             (instance as Record<string, unknown>)[key] = initialValues[key];
           }
