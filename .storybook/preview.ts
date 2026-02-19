@@ -8,8 +8,10 @@ const preview: Preview = {
         date: /Date$/i,
       },
     },
+    docs: {
+      autodocs: true,
+    },
   },
-  tags: ["autodocs"],
 };
 
 export default preview;

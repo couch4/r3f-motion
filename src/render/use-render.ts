@@ -6,7 +6,7 @@ import {
   useRef,
 } from "react";
 import type { ThreeElement } from "../types";
-import { Color } from "three";
+import { Color, type ColorRepresentation } from "three";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type PropertySetter = (val: any) => void;
@@ -30,7 +30,7 @@ export const useRender = (
       // Apply initial values immediately to prevent FOUC - but only once
       if (initialValues && !initialValuesAppliedRef.current) {
         initialValuesAppliedRef.current = true;
-        // Property mapping configuration
+        // Transform property mapping
         const propertyMap: Record<string, PropertySetter> = {
           x: (val) =>
             instance.position && (instance.position.x = val as number),
@@ -50,36 +50,28 @@ export const useRender = (
           scaleX: (val) => instance.scale && (instance.scale.x = val as number),
           scaleY: (val) => instance.scale && (instance.scale.y = val as number),
           scaleZ: (val) => instance.scale && (instance.scale.z = val as number),
-          color: (val) => {
-            const color = instance.color as Color;
-            if (color && color.set) {
-              color.set(val);
-            }
-          },
-          opacity: (val) =>
-            instance.opacity !== undefined &&
-            (instance.opacity = val as number),
-          emissive: (val) => {
-            const emissive = instance.emissive as Color;
-            if (emissive && emissive.set) {
-              emissive.set(val);
-            }
-          },
-          emissiveIntensity: (val) =>
-            instance.emissiveIntensity !== undefined &&
-            (instance.emissiveIntensity = val as number),
-          roughness: (val) =>
-            instance.roughness !== undefined &&
-            (instance.roughness = val as number),
-          metalness: (val) =>
-            instance.metalness !== undefined &&
-            (instance.metalness = val as number),
         };
+
+        // Color-type properties that need .set()
+        const colorKeys = new Set([
+          "color",
+          "emissive",
+          "specular",
+          "sheenColor",
+          "attenuationColor",
+        ]);
 
         for (const key in initialValues) {
           const setter = propertyMap[key];
           if (setter) {
             setter(initialValues[key]);
+          } else if (colorKeys.has(key)) {
+            const colorProp = instance[key] as Color;
+            if (colorProp && colorProp.set) {
+              colorProp.set(initialValues[key] as ColorRepresentation);
+            }
+          } else if (key in instance && typeof instance[key] === "number") {
+            (instance as Record<string, unknown>)[key] = initialValues[key];
           }
         }
       }

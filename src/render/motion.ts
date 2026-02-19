@@ -12,6 +12,7 @@ import {
 } from "react";
 import { animate as animateFn } from "motion";
 import type { ThreeMotionComponents, ThreeElement } from "../types";
+import { PresenceContext } from "../components/AnimatePresence/PresenceContext";
 import { useRender } from "./use-render";
 import { useHover } from "./gestures/use-hover";
 import { useTap } from "./gestures/use-tap";
@@ -68,9 +69,12 @@ function custom<Props>(Component: string) {
         [],
       );
 
+      const presenceContext = useContext(PresenceContext);
+
       const {
         initial: initialProp,
         animate: animateProp,
+        exit: exitProp,
         transition,
         variants,
         custom,
@@ -294,6 +298,15 @@ function custom<Props>(Component: string) {
             );
           };
 
+          // Color-type properties that need RGB channel animation
+          const colorKeys = new Set([
+            "color",
+            "emissive",
+            "specular",
+            "sheenColor",
+            "attenuationColor",
+          ]);
+
           Object.entries(targetValues).forEach(([key, value]) => {
             const opts = getPropertyOpts(key);
             const mapping = transformMap[key];
@@ -316,44 +329,12 @@ function custom<Props>(Component: string) {
                   key,
                 );
               }
-            } else if (key === "color" && instance.color) {
-              animateColor(instance.color, value, opts, key);
-            } else if (key === "emissive" && instance.emissive) {
-              animateColor(instance.emissive, value, opts, key);
-            } else if (key === "opacity" && instance.opacity !== undefined) {
+            } else if (colorKeys.has(key) && instance[key]) {
+              animateColor(instance[key], value, opts, key);
+            } else if (key in instance && typeof instance[key] === "number") {
               createAnimation(
                 instance as Record<string, unknown>,
-                { opacity: value },
-                opts,
-                key,
-              );
-            } else if (
-              key === "emissiveIntensity" &&
-              instance.emissiveIntensity !== undefined
-            ) {
-              createAnimation(
-                instance as Record<string, unknown>,
-                { emissiveIntensity: value },
-                opts,
-                key,
-              );
-            } else if (
-              key === "roughness" &&
-              instance.roughness !== undefined
-            ) {
-              createAnimation(
-                instance as Record<string, unknown>,
-                { roughness: value },
-                opts,
-                key,
-              );
-            } else if (
-              key === "metalness" &&
-              instance.metalness !== undefined
-            ) {
-              createAnimation(
-                instance as Record<string, unknown>,
-                { metalness: value },
+                { [key]: value },
                 opts,
                 key,
               );
@@ -405,6 +386,48 @@ function custom<Props>(Component: string) {
         return () => animationRef.current?.stop();
         // eslint-disable-next-line react-hooks/exhaustive-deps
       }, [animate]);
+
+      // Handle exit animation when presence context signals removal
+      useEffect(() => {
+        if (!presenceContext || presenceContext.isPresent) return;
+        if (!instanceRef.current || !exitProp) {
+          // No exit animation defined, safe to remove immediately
+          presenceContext.safeToRemove();
+          return;
+        }
+
+        const resolved =
+          typeof exitProp === "string" ? resolveVariant(exitProp) : exitProp;
+        if (!resolved) {
+          presenceContext.safeToRemove();
+          return;
+        }
+
+        const resolvedObj = resolved as Record<string, unknown>;
+        const { transition: exitTransition, ...exitValues } = resolvedObj;
+        const effectiveExitTransition = exitTransition || transition;
+
+        // Store safeToRemove in a ref-like closure so onAnimationComplete can call it
+        const originalComplete = callbacksRef.current?.onAnimationComplete;
+        const safeToRemove = presenceContext.safeToRemove;
+
+        callbacksRef.current = {
+          ...callbacksRef.current,
+          onAnimationComplete: (variant?: string) => {
+            originalComplete?.(variant);
+            safeToRemove();
+          },
+        };
+
+        animateToTarget(
+          exitValues,
+          effectiveExitTransition as Record<string, unknown>,
+          true,
+        );
+
+        return () => animationRef.current?.stop();
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+      }, [presenceContext?.isPresent]);
 
       const gestureProps = {
         instanceRef,

@@ -19,6 +19,7 @@ const meta = {
       },
     },
   },
+  tags: ["autodocs"],
   decorators: [
     (Story) => (
       <div

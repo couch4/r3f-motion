@@ -1,4 +1,4 @@
-import { useState, useRef } from "react";
+import { useState } from "react";
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import Scene from "./SharedScene";
 import { motion } from "../src/render/motion";
@@ -9,6 +9,7 @@ const MotionMeshWithCallbacks = motion.mesh;
 const meta = {
   title: "Motion3D/MotionEvents",
   component: MotionMeshWithCallbacks,
+  tags: ["autodocs"],
   parameters: {
     layout: "fullscreen",
     docs: {

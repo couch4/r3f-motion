@@ -8,6 +8,7 @@ const meta = {
   parameters: {
     layout: "fullscreen",
   },
+  tags: ["autodocs"],
   decorators: [
     (Story) => (
       <div
@@ -59,7 +60,7 @@ export const AnimatingCamera: Story = {
     },
 
     transition: { duration: 2, repeat: Infinity, repeatType: "reverse" },
-    type: "perspective"
+    type: "perspective",
   },
 };
 

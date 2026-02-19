@@ -1,6 +1,6 @@
 {
   "name": "r3f-motion",
-  "version": "1.0.3",
+  "version": "1.0.4",
   "description": "A simple and powerful React animation library for @react-three/fiber leveraging motion.dev",
   "main": "dist/cjs/index.js",
   "module": "dist/es/index.mjs",
@@ -50,6 +50,7 @@
     "postpublish": "git push --tags"
   },
   "dependencies": {
+    "@storybook/addon-docs": "^10.2.10",
     "motion": "^12.29.0",
     "react-merge-refs": "^3.0.2"
   },
