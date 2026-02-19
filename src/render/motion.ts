@@ -331,6 +331,26 @@ function custom<Props>(Component: string) {
               }
             } else if (colorKeys.has(key) && instance[key]) {
               animateColor(instance[key], value, opts, key);
+            } else if (
+              instance.uniforms &&
+              (instance.uniforms as Record<string, unknown>)[key] &&
+              typeof (
+                (instance.uniforms as Record<string, Record<string, unknown>>)[
+                  key
+                ] as Record<string, unknown>
+              )?.value === "number"
+            ) {
+              // Animate ShaderMaterial uniforms (uniforms[key].value)
+              // Note: consumers must useMemo their uniforms prop to prevent
+              // R3F from overwriting animated values on re-render
+              createAnimation(
+                (instance.uniforms as Record<string, Record<string, unknown>>)[
+                  key
+                ] as Record<string, unknown>,
+                { value: value },
+                opts,
+                key,
+              );
             } else if (key in instance && typeof instance[key] === "number") {
               createAnimation(
                 instance as Record<string, unknown>,
