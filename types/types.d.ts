@@ -1,10 +1,47 @@
 import type { Color, Euler, Vector3, ReactThreeFiber } from "@react-three/fiber";
 import * as THREE from "three";
 import type { ForwardRefExoticComponent, PropsWithoutRef, RefAttributes } from "react";
-import type { MotionValue, ResolvedValues, MotionProps } from "motion/react";
+import type { MotionValue, ResolvedValues, MotionProps, Transition } from "motion/react";
 export type ThreeElement = InstanceType<typeof THREE.Object3D> & Record<string, unknown>;
-export interface ThreeMotionProps extends Omit<MotionProps, "style" | "children" | "onUpdate" | "onAnimationStart" | "onAnimationComplete"> {
+export interface DragInfo {
+    point: {
+        x: number;
+        y: number;
+    };
+    offset: {
+        x: number;
+        y: number;
+        z: number;
+    };
+    delta: {
+        x: number;
+        y: number;
+        z: number;
+    };
+    velocity: {
+        x: number;
+        y: number;
+        z: number;
+    };
+}
+export interface DragConstraints {
+    left?: number;
+    right?: number;
+    top?: number;
+    bottom?: number;
+}
+export interface ThreeMotionProps extends Omit<MotionProps, "style" | "children" | "onUpdate" | "onAnimationStart" | "onAnimationComplete" | "drag" | "dragConstraints" | "dragElastic" | "dragMomentum" | "dragSnapToOrigin" | "dragTransition" | "onDrag" | "onDragStart" | "onDragEnd" | "whileDrag" | "dragDirectionLock" | "dragPropagation" | "dragListener"> {
     [key: string]: unknown;
+    drag?: boolean | "x" | "y" | "z";
+    dragConstraints?: DragConstraints;
+    dragElastic?: number | boolean;
+    dragMomentum?: boolean;
+    dragSnapToOrigin?: boolean;
+    dragTransition?: Transition;
+    whileDrag?: Record<string, unknown> | string;
+    onDragStart?: (event: PointerEvent, info: DragInfo) => void;
+    onDrag?: (event: PointerEvent, info: DragInfo) => void;
+    onDragEnd?: (event: PointerEvent, info: DragInfo) => void;
     onInstanceUpdate?: ReactThreeFiber.ThreeElements["object3D"]["onUpdate"];
     onUpdate?: (values: Record<string, unknown>, animationVariant?: string) => void;
     onAnimationStart?: (values: Record<string, unknown>, animationVariant?: string) => void;
