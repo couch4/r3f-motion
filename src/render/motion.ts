@@ -16,6 +16,7 @@ import { PresenceContext } from "../components/AnimatePresence/PresenceContext";
 import { useRender } from "./use-render";
 import { useHover } from "./gestures/use-hover";
 import { useTap } from "./gestures/use-tap";
+import { useDrag } from "./gestures/use-drag";
 import {
   createAnimationState,
   createCallbackOptions,
@@ -449,6 +450,10 @@ function custom<Props>(Component: string) {
         // eslint-disable-next-line react-hooks/exhaustive-deps
       }, [presenceContext?.isPresent]);
 
+      const stopAnimation = useCallback(() => {
+        animationRef.current?.stop();
+      }, []);
+
       const gestureProps = {
         instanceRef,
         captureInstanceState,
@@ -456,6 +461,7 @@ function custom<Props>(Component: string) {
         animateToTarget,
         resolveVariant,
         transition,
+        stopAnimation,
       };
       const gestureHandlers = {
         ...useHover(
@@ -464,6 +470,11 @@ function custom<Props>(Component: string) {
           gestureProps,
         ),
         ...useTap(
+          false,
+          props as Props & Record<string, unknown>,
+          gestureProps,
+        ),
+        ...useDrag(
           false,
           props as Props & Record<string, unknown>,
           gestureProps,

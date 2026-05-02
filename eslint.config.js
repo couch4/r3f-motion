@@ -16,6 +16,9 @@ export default defineConfig([globalIgnores(['dist']), {
     reactHooks.configs.flat.recommended,
     reactRefresh.configs.vite,
   ],
+  rules: {
+    '@typescript-eslint/ban-ts-comments': 'warn',
+  },
   languageOptions: {
     ecmaVersion: 2020,
     globals: globals.browser,
