@@ -20,10 +20,7 @@ const VELOCITY_PROJECTION = 0.2
 // the carousel snaps back to the slot the drag started on.
 const DRAG_THRESHOLD_RATIO = 0.25
 const FLICK_VELOCITY = 1.0
-// Block clicks until this many ms have elapsed since the carousel last
-// showed any motion (drag or snap). Bump if clicks still leak through after
-// fast flicks; lower if true taps feel laggy.
-const CLICK_COOLDOWN_MS = 250
+
 
 export interface CarouselProps {
   items: ReactNode[]

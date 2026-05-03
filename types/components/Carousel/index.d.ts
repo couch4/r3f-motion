@@ -1,5 +1,5 @@
 import { type ReactNode } from 'react';
-import { type Transition } from 'motion/react';
+import { useMotionValue, type Transition } from 'motion/react';
 import type { DragInfo } from '../../types';
 export interface CarouselProps {
     items: ReactNode[];
@@ -15,6 +15,15 @@ export interface CarouselProps {
     dragThreshold?: number;
     flickVelocity?: number;
 }
-declare const Carousel: ({ items, itemWidth, gap, defaultValue, transition, onSwitch, onDragStart, onDrag, onDragEnd, renderThreshold, dragThreshold, flickVelocity, }: CarouselProps) => import("react/jsx-runtime").JSX.Element;
+export interface CarouselSlotInfo {
+    slotIndex: number;
+    itemIndex: number;
+    currIndex: ReturnType<typeof useMotionValue>;
+    distance: number;
+    isActive: boolean;
+    isNearby: boolean;
+}
+export declare const useCarouselSlot: () => CarouselSlotInfo;
+declare const Carousel: ({ items, itemWidth, gap, defaultValue, transition, onSwitch, onDragStart, onDrag, onDragEnd, renderThreshold, dragThreshold, flickVelocity, ...props }: CarouselProps) => import("react/jsx-runtime").JSX.Element;
 declare const _default: typeof Carousel;
 export default _default;
