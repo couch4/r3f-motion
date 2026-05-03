@@ -1,5 +1,5 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
-import { Environment } from "@react-three/drei";
+import { Environment, Html } from "@react-three/drei";
 import Carousel from "../src/components/Carousel";
 import Scene from "./SharedScene";
 
@@ -47,7 +47,7 @@ export const CarouselLoop: Story = {
     defaultValue: 0,
     // @ts-ignore
     freeCamera: false,
-    renderThreshold: 1,
+    renderThreshold: undefined,
   },
   argTypes: {
     itemWidth: { control: { type: "number", step: 0.1 } },
@@ -63,6 +63,24 @@ export const CarouselLoop: Story = {
             <boxGeometry args={[args.itemWidth ?? 1.5, args.itemWidth ?? 1.5, 0.3]} />
             <meshStandardMaterial color={(item as { color: string }).color} />
           </mesh>
+          <Html
+            position={[0, 0, (args?.itemWidth ?? 1.5 ) * 0.105]}
+            transform
+            distanceFactor={1}
+            pointerEvents="none"
+          >
+            <div
+              style={{
+                color: "white",
+                fontFamily: "Arial, sans-serif",
+                fontWeight: "bold",
+                fontSize: ` ${(args?.itemWidth ?? 1.5) * 200}px`,
+                userSelect: "none",
+              }}
+            >
+              {i}
+            </div>
+          </Html>
         </group>
       ))}
     />

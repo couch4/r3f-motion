@@ -1,4 +1,4 @@
-import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, type ReactNode, type RefObject } from 'react'
+import { createContext, memo, useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { useFrame } from '@react-three/fiber'
 import { Box3, PlaneGeometry, type Group, type Mesh } from 'three'
 import { animate, useMotionValue, type AnimationPlaybackControls, type Transition } from 'motion/react'
@@ -20,6 +20,10 @@ const VELOCITY_PROJECTION = 0.2
 // the carousel snaps back to the slot the drag started on.
 const DRAG_THRESHOLD_RATIO = 0.25
 const FLICK_VELOCITY = 1.0
+// Block clicks until this many ms have elapsed since the carousel last
+// showed any motion (drag or snap). Bump if clicks still leak through after
+// fast flicks; lower if true taps feel laggy.
+const CLICK_COOLDOWN_MS = 250
 
 export interface CarouselProps {
   items: ReactNode[]
@@ -37,15 +41,34 @@ export interface CarouselProps {
 }
 
 const mod = (n: number, m: number) => ((n % m) + m) % m
+let isDragging = false
+
+export interface CarouselSlotInfo {
+  slotIndex: number
+  itemIndex: number
+  currIndex: ReturnType<typeof useMotionValue>
+  // Physical-slot distance from the active slot, wrapped (0 = active).
+  distance: number
+  isActive: boolean
+  isNearby: boolean
+}
+
+const CarouselSlotContext = createContext<CarouselSlotInfo | null>(null)
+
+export const useCarouselSlot = (): CarouselSlotInfo => {
+  const ctx = useContext(CarouselSlotContext)
+  if (!ctx) throw new Error('useCarouselSlot must be used inside <Carousel>')
+  return ctx
+}
 
 interface SlotProps {
   item: ReactNode
   itemWidth: number
   slotRef: (el: Group | null) => void
-  hadDragRef: RefObject<boolean>
+  visible: boolean
 }
 
-const CarouselSlot = memo(({ hadDragRef, item, itemWidth, slotRef }: SlotProps) => {
+const CarouselSlot = memo(({ item, itemWidth, slotRef, visible }: SlotProps) => {
   const contentRef = useRef<Group>(null)
   const coverRef = useRef<Mesh>(null)
 
@@ -55,28 +78,28 @@ const CarouselSlot = memo(({ hadDragRef, item, itemWidth, slotRef }: SlotProps) 
     if (!content || !cover) return
     const box = new Box3().setFromObject(content)
     if (box.isEmpty()) return
+    const w = Math.max(box.max.x - box.min.x, itemWidth)
     const h = box.max.y - box.min.y
     cover.geometry.dispose()
-    cover.geometry = new PlaneGeometry(itemWidth, h)
-    cover.position.z = box.max.z + 0.001
-  }, [item, itemWidth])
+    cover.geometry = new PlaneGeometry(w, h)
+    cover.position.set(
+      (box.max.x + box.min.x) / 2,
+      (box.max.y + box.min.y) / 2,
+      box.max.z + 0.001,
+    )
+  }, [itemWidth])
 
   // Dispose the generated geometry on unmount — useLayoutEffect's replacement
   // logic only disposes the *previous* geometry, not the final one.
   useEffect(() => () => { coverRef.current?.geometry.dispose() }, [])
 
+  // No onClick on the cover — the carousel's document-level capture listener
+  // handles click suppression. The cover stays as a drag hit-target so swiping
+  // works on slot regions where user content has gaps.
   return (
     <group ref={slotRef}>
-      <group ref={contentRef}>{item}</group>
-      <mesh
-        ref={coverRef}
-        onClick={(e) => {
-          if (hadDragRef.current) {
-            e.stopPropagation()
-            hadDragRef.current = false
-          }
-        }}
-      >
+      <group ref={contentRef}>{visible ? item : null}</group>
+      <mesh ref={coverRef}>
         <planeGeometry args={[itemWidth, itemWidth]} />
         <meshBasicMaterial transparent opacity={0} depthWrite={false} />
       </mesh>
@@ -94,9 +117,10 @@ const Carousel = ({
   onDragStart,
   onDrag,
   onDragEnd,
-  renderThreshold = 1,
+  renderThreshold,
   dragThreshold = DRAG_THRESHOLD_RATIO,
   flickVelocity = FLICK_VELOCITY,
+  ...props
 }: CarouselProps) => {
   const slideWidth = itemWidth + gap
   const count = items.length
@@ -113,15 +137,39 @@ const Carousel = ({
   const groupRef = useRef<Group>(null)
   const itemRefs = useRef<(Group | null)[]>([])
 
+  // Slot mount/unmount state — mirrors `ref.visible` but propagates through
+  // React so children that rely on lifecycle (e.g. Drei's <Html>, which
+  // doesn't reliably react to mid-frame `visible` mutations) update cleanly.
+  // Only flips when a slot crosses the threshold, so re-renders are limited
+  // to ~2-4 per swipe instead of every frame.
+  const [visibleMask, setVisibleMask] = useState<boolean[]>(() => {
+    if (renderThreshold === undefined) return new Array(slotCount).fill(true)
+    const mask = new Array(slotCount).fill(false)
+    for (let i = 0; i < slotCount; i++) {
+      mask[i] = Math.abs(i - startSlot) <= renderThreshold + 0.5
+    }
+    return mask
+  })
+  const visibleMaskRef = useRef(visibleMask)
+  visibleMaskRef.current = visibleMask
+
   // Single source of truth: a fractional slot index that grows up/down
   // infinitely as the user navigates. group.position.x = -currIndex * slideWidth
   // at rest. Snap animations animate currIndex toward integer targets;
   // useFrame applies it to the group every frame (when not dragging).
   const currIndex = useMotionValue(startSlot)
   const isDraggingRef = useRef(false)
-  const hadDragRef = useRef(false)
   const dragStartIndexRef = useRef(startSlot)
   const snapAnimRef = useRef<AnimationPlaybackControls | null>(null)
+  // performance.now() of the most recent frame in which the carousel was
+  // moving (drag in progress or off-snap). Click handler uses this to
+  // suppress clicks during/just-after motion.
+  const lastMotionAtRef = useRef(0)
+
+  // Wrapped physical slot index (0..slotCount-1) — drives per-slot context so
+  // children can read isActive/distance without the consumer having to lift
+  // state. Updates the moment a snap commits, not while dragging.
+  const [currentSlot, setCurrentSlot] = useState(() => mod(startSlot, slotCount))
 
   const initial = useMemo(
     () => ({ x: -startSlot * slideWidth }),
@@ -132,23 +180,44 @@ const Carousel = ({
   const goTo = useCallback(
     (slot: number) => {
       onSwitch?.(mod(slot, count))
+      setCurrentSlot(mod(slot, slotCount))
       snapAnimRef.current?.stop()
       snapAnimRef.current = animate(currIndex, slot, transition)
     },
-    [count, transition, onSwitch, currIndex],
+    [count, slotCount, transition, onSwitch, currIndex],
   )
 
   useEffect(() => () => snapAnimRef.current?.stop(), [])
 
+  // Document-level capture click listener — fires before R3F's listener (and
+  // any descendant DOM handlers) anywhere in the tree. While the carousel is
+  // moving (or just settled), swallow the event so it never reaches user
+  // content (R3F meshes or HTML portaled by Drei). No-op outside the cooldown
+  // window, so true taps propagate normally.
+  useEffect(() => {
+    const onClickCapture = (e: Event) => {
+
+      if (isDragging) {
+        e.stopImmediatePropagation()
+        e.stopPropagation()
+      }
+   
+    }
+
+    document.addEventListener('click', onClickCapture, true)
+    return () => document.removeEventListener('click', onClickCapture, true)
+  }, [])
+
   // Drag start: stop any in-flight snap and capture the slot we started on
   // so an under-threshold release can elastic back to it.
   const handleDragStart = useCallback(() => {
+    isDragging = false
     isDraggingRef.current = true
-    hadDragRef.current = false
+    lastMotionAtRef.current = performance.now()
     dragStartIndexRef.current = Math.round(currIndex.get())
     snapAnimRef.current?.stop()
     snapAnimRef.current = null
-    onDragStart?.()
+    onDragStart?.() 
   }, [currIndex, onDragStart])
 
   const handleDragEnd = useCallback(
@@ -174,7 +243,6 @@ const Carousel = ({
         return
       }
 
-      hadDragRef.current = true
       const projectedX = releasedX + info.velocity.x * VELOCITY_PROJECTION
       const targetSlot = Math.round(-projectedX / slideWidth)
       goTo(targetSlot)
@@ -194,6 +262,13 @@ const Carousel = ({
       group.position.x = -currIndex.get() * slideWidth
     }
     const groupX = group.position.x
+    const snapDelta = Math.abs(groupX - Math.round(groupX / slideWidth) * slideWidth)
+    if (isDraggingRef.current || snapDelta > 0.001) {
+      lastMotionAtRef.current = performance.now()
+      isDragging = snapDelta > 0.001
+
+    }
+    let nextMask: boolean[] | null = null
     for (let i = 0; i < slotCount; i++) {
       const ref = itemRefs.current[i]
       if (!ref) continue
@@ -203,7 +278,16 @@ const Carousel = ({
       // one fades out — keeps the loop seamless mid-drag instead of waiting
       // for snap to settle on an integer slot.
       const slotDist = (groupX + ref.position.x) / slideWidth
-      ref.visible = Math.abs(slotDist) <= renderThreshold + 0.5
+      const shouldBeVisible = renderThreshold ? Math.abs(slotDist) <= renderThreshold + 0.5 : true
+      ref.visible = shouldBeVisible
+      if (visibleMaskRef.current[i] !== shouldBeVisible) {
+        if (!nextMask) nextMask = visibleMaskRef.current.slice()
+        nextMask[i] = shouldBeVisible
+      }
+    }
+    if (nextMask) {
+      visibleMaskRef.current = nextMask
+      setVisibleMask(nextMask)
     }
   })
 
@@ -213,19 +297,36 @@ const Carousel = ({
       drag="x"
       dragMomentum={false}
       initial={initial}
+      {...props}
       onDragStart={handleDragStart}
       onDragEnd={handleDragEnd}
       onDrag={(_e: PointerEvent, info: DragInfo) => onDrag?.(info)}
     >
-      {loopedItems.map((item, i) => (
-        <CarouselSlot
-          key={`carouselItem-${i}`}
-          item={item}
-          itemWidth={itemWidth}
-          slotRef={(el) => { itemRefs.current[i] = el }}
-          hadDragRef={hadDragRef}
-        />
-      ))}
+      {loopedItems.map((item, i) => {
+        const raw = i - currentSlot
+        const halfWrap = (((raw + slotCount / 2) % slotCount) + slotCount) % slotCount
+        const distance = Math.abs(halfWrap - slotCount / 2)
+        return (
+          <CarouselSlotContext.Provider
+            key={`carouselItem-${i}`}
+            value={{
+              slotIndex: i,
+              itemIndex: i % count,
+              distance,
+              isActive: distance === 0,
+              isNearby: distance <= 1,
+              currIndex,
+            }}
+          >
+            <CarouselSlot
+              item={item}
+              itemWidth={itemWidth}
+              slotRef={(el) => { itemRefs.current[i] = el }}
+              visible={visibleMask[i] ?? false}
+            />
+          </CarouselSlotContext.Provider>
+        )
+      })}
     </motion.group>
   )
 }
