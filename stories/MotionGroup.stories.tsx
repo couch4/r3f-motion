@@ -66,8 +66,8 @@ export const RotatingGroup: Story = {
       },
     },
   },
-  render: () => (
-    <Scene>
+  render: (_, context) => (
+    <Scene controls={context?.globals?.orbit || false}>
       <motion.group
         initial={{ rotateY: 0 }}
         animate={{ rotateY: Math.PI * 2 }}
@@ -99,8 +99,8 @@ export const StaggeredGroup: Story = {
       },
     },
   },
-  render: () => (
-    <Scene>
+  render: (_, context) => (
+    <Scene controls={context?.globals?.orbit || false}>
       <motion.group
         initial={{ scale: 0 }}
         animate={{ scale: 1 }}
@@ -164,8 +164,8 @@ export const OrbitingGroup: Story = {
       },
     },
   },
-  render: () => (
-    <Scene>
+  render: (_, context) => (
+    <Scene controls={context?.globals?.orbit || false}>
       <motion.group
         initial={{ rotateY: 0, rotateX: 0 }}
         animate={{ rotateY: Math.PI * 2, rotateX: Math.PI * 0.1 }}
@@ -208,8 +208,8 @@ export const WaveGroup: Story = {
       },
     },
   },
-  render: () => (
-    <Scene>
+  render: (_, context) => (
+    <Scene controls={context?.globals?.orbit || false}>
       <motion.group>
         {Array.from({ length: 10 }).map((_, i) => (
           <motion.mesh
@@ -248,8 +248,8 @@ export const InheritedVariants: Story = {
       },
     },
   },
-  render: () => (
-    <Scene>
+  render: (_, context) => (
+    <Scene controls={context?.globals?.orbit || false}>
       <motion.group
         initial="inactive"
         animate="active"
@@ -315,8 +315,8 @@ export const CustomProp: Story = {
       },
     },
   },
-  render: () => (
-    <Scene>
+  render: (_, context) => (
+    <Scene controls={context?.globals?.orbit || false}>
       <motion.group initial="inactive" animate="active">
         {["hotpink", "cyan", "orange", "blue"].map(
           (color: string, index: number) => (

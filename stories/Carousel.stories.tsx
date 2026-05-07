@@ -17,12 +17,12 @@ const meta = {
   },
   tags: ["autodocs"],
   decorators: [
-    (Story , context) => (
+    (Story, context) => (
       <div
         style={{ width: "100vw", height: "100vh", backgroundColor: "#121212" }}
       >
         {/* @ts-ignore */}
-        <Scene controls={context?.args?.freeCamera || false}>
+        <Scene controls={context?.globals?.orbit || false}>
           <Environment preset="warehouse" />
           <Story />
         </Scene>
@@ -34,11 +34,7 @@ const meta = {
 export default meta;
 type Story = StoryObj<typeof meta>;
 
-const colorItems = [
-  { color: "hotpink" },
-  { color: "cyan" },
-  { color: "gold" },
-];
+const colorItems = [{ color: "hotpink" }, { color: "cyan" }, { color: "gold" }];
 
 export const CarouselLoop: Story = {
   args: {
@@ -48,23 +44,31 @@ export const CarouselLoop: Story = {
     // @ts-ignore
     freeCamera: false,
     renderThreshold: undefined,
+    disable: false,
   },
   argTypes: {
     itemWidth: { control: { type: "number", step: 0.1 } },
     gap: { control: { type: "number", step: 0.1 } },
     defaultValue: { control: "number" },
+    disable: { control: "boolean" },
   },
   render: (args) => (
     <Carousel
       {...args}
       items={colorItems.map((item, i: number) => (
-        <group key={`carouselItem-${i}`} position-y={0.5} onClick={() => alert(`clicked on ${i}`)}>
+        <group
+          key={`carouselItem-${i}`}
+          position-y={0.5}
+          onClick={() => alert(`clicked on ${i}`)}
+        >
           <mesh>
-            <boxGeometry args={[args.itemWidth ?? 1.5, args.itemWidth ?? 1.5, 0.3]} />
+            <boxGeometry
+              args={[args.itemWidth ?? 1.5, args.itemWidth ?? 1.5, 0.3]}
+            />
             <meshStandardMaterial color={(item as { color: string }).color} />
           </mesh>
           <Html
-            position={[0, 0, (args?.itemWidth ?? 1.5 ) * 0.105]}
+            position={[0, 0, (args?.itemWidth ?? 1.5) * 0.105]}
             transform
             distanceFactor={1}
             pointerEvents="none"
