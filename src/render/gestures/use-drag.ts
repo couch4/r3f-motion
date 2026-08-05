@@ -34,13 +34,49 @@ const getWorldPerPixel = (
 ) => {
   const ortho = camera as THREE.OrthographicCamera;
   if (ortho.isOrthographicCamera) {
-    return (
-      (ortho.top - ortho.bottom) / (viewportHeight * (ortho.zoom || 1))
-    );
+    return (ortho.top - ortho.bottom) / (viewportHeight * (ortho.zoom || 1));
   }
   const persp = camera as THREE.PerspectiveCamera;
   const fov = (persp.fov ?? 60) * (Math.PI / 180);
   return (2 * Math.tan(fov / 2) * depth) / viewportHeight;
+};
+
+// Velocity is averaged over a short trailing window rather than taken from the
+// last pointermove pair. Consecutive moves can be 1-8ms apart, and a coalesced
+// move whose position hasn't changed reports zero — noise that would otherwise
+// reach consumers via DragInfo and feed momentum/flick decisions.
+const VELOCITY_WINDOW_MS = 50;
+const MAX_VELOCITY_SAMPLES = 24;
+
+interface VelocitySample {
+  t: number;
+  x: number;
+  y: number;
+  z: number;
+}
+
+// Prunes `samples` to the trailing window (mutating it) and writes the average
+// velocity over what remains into `out`. A pointer held still long enough for
+// the window to empty reports zero, which is what a release after a pause
+// should do.
+const sampleVelocity = (
+  samples: VelocitySample[],
+  now: number,
+  out: THREE.Vector3,
+) => {
+  while (samples.length > 1 && now - samples[0].t > VELOCITY_WINDOW_MS) {
+    samples.shift();
+  }
+  const oldest = samples[0];
+  const newest = samples[samples.length - 1];
+  if (!oldest || oldest === newest) return out.set(0, 0, 0);
+  const dt = (newest.t - oldest.t) / 1000;
+  if (dt <= 0) return out.set(0, 0, 0);
+  return out.set(
+    (newest.x - oldest.x) / dt,
+    (newest.y - oldest.y) / dt,
+    (newest.z - oldest.z) / dt,
+  );
 };
 
 const clampWithElastic = (
@@ -80,7 +116,7 @@ export function useDrag(
   const lastPosRef = useRef(new THREE.Vector3());
   const velocityRef = useRef(new THREE.Vector3());
   const lastDeltaRef = useRef(new THREE.Vector3());
-  const lastTimeRef = useRef(0);
+  const velocitySamplesRef = useRef<VelocitySample[]>([]);
   const preDragStateRef = useRef<Record<string, unknown> | null>(null);
   const pointerIdRef = useRef<number | null>(null);
 
@@ -179,7 +215,7 @@ export function useDrag(
       event.stopPropagation();
 
       // Halt any in-flight motion-library animation (e.g. main `animate` prop
-       // tween that's still running) and any active drag spring.
+      // tween that's still running) and any active drag spring.
       stopAnimation();
       if (springStateRef.current) springStateRef.current.active = false;
 
@@ -211,7 +247,14 @@ export function useDrag(
       lastPosRef.current.copy(dragStartPosRef.current);
       lastDeltaRef.current.set(0, 0, 0);
       velocityRef.current.set(0, 0, 0);
-      lastTimeRef.current = performance.now();
+      velocitySamplesRef.current = [
+        {
+          t: performance.now(),
+          x: dragStartPosRef.current.x,
+          y: dragStartPosRef.current.y,
+          z: dragStartPosRef.current.z,
+        },
+      ];
 
       // Compute world-units-per-pixel at the object's perpendicular depth
       // (distance from camera along its forward axis).
@@ -282,67 +325,99 @@ export function useDrag(
             : 0.5;
       const constraints = cur.dragConstraints;
 
-      const pixelDx = event.clientX - dragStartPointerRef.current.x;
-      const pixelDy = event.clientY - dragStartPointerRef.current.y;
-      const scale = worldPerPixelRef.current;
+      const toWorld = (clientX: number, clientY: number) => {
+        const pixelDx = clientX - dragStartPointerRef.current.x;
+        const pixelDy = clientY - dragStartPointerRef.current.y;
+        const scale = worldPerPixelRef.current;
 
-      let newX = dragStartPosRef.current.x;
-      let newY = dragStartPosRef.current.y;
-      let newZ = dragStartPosRef.current.z;
+        let x = dragStartPosRef.current.x;
+        let y = dragStartPosRef.current.y;
+        let z = dragStartPosRef.current.z;
 
-      if (dragAxis === "z") {
-        // Vertical screen movement → Z. Cursor down (pixelDy > 0) = closer.
-        newZ = dragStartPosRef.current.z + pixelDy * scale;
-      } else {
-        // Map screen XY to camera-relative world delta.
-        const r = cameraRightRef.current;
-        const u = cameraUpRef.current;
-        const worldDx = r.x * pixelDx * scale + u.x * -pixelDy * scale;
-        const worldDy = r.y * pixelDx * scale + u.y * -pixelDy * scale;
-        const worldDz = r.z * pixelDx * scale + u.z * -pixelDy * scale;
-
-        if (dragAxis === "x") {
-          newX = dragStartPosRef.current.x + worldDx;
-        } else if (dragAxis === "y") {
-          newY = dragStartPosRef.current.y + worldDy;
+        if (dragAxis === "z") {
+          // Vertical screen movement → Z. Cursor down (pixelDy > 0) = closer.
+          z = dragStartPosRef.current.z + pixelDy * scale;
         } else {
-          newX = dragStartPosRef.current.x + worldDx;
-          newY = dragStartPosRef.current.y + worldDy;
-          newZ = dragStartPosRef.current.z + worldDz;
-        }
-      }
+          // Map screen XY to camera-relative world delta.
+          const r = cameraRightRef.current;
+          const u = cameraUpRef.current;
+          const worldDx = r.x * pixelDx * scale + u.x * -pixelDy * scale;
+          const worldDy = r.y * pixelDx * scale + u.y * -pixelDy * scale;
+          const worldDz = r.z * pixelDx * scale + u.z * -pixelDy * scale;
 
-      // Constraints with elastic rubber-banding
-      if (constraints) {
-        if (dragAxis !== "y" && dragAxis !== "z") {
-          newX = clampWithElastic(
-            newX,
-            constraints.left,
-            constraints.right,
-            elasticVal,
-          );
+          if (dragAxis === "x") {
+            x = dragStartPosRef.current.x + worldDx;
+          } else if (dragAxis === "y") {
+            y = dragStartPosRef.current.y + worldDy;
+          } else {
+            x = dragStartPosRef.current.x + worldDx;
+            y = dragStartPosRef.current.y + worldDy;
+            z = dragStartPosRef.current.z + worldDz;
+          }
         }
-        if (dragAxis !== "x" && dragAxis !== "z") {
-          newY = clampWithElastic(
-            newY,
-            constraints.bottom,
-            constraints.top,
-            elasticVal,
-          );
-        }
-      }
 
-      // Velocity tracking (used for momentum on release)
+        // Constraints with elastic rubber-banding
+        if (constraints) {
+          if (dragAxis !== "y" && dragAxis !== "z") {
+            x = clampWithElastic(
+              x,
+              constraints.left,
+              constraints.right,
+              elasticVal,
+            );
+          }
+          if (dragAxis !== "x" && dragAxis !== "z") {
+            y = clampWithElastic(
+              y,
+              constraints.bottom,
+              constraints.top,
+              elasticVal,
+            );
+          }
+        }
+
+        return { x, y, z };
+      };
+
       const now = performance.now();
-      const dt = (now - lastTimeRef.current) / 1000;
-      if (dt > 0) {
-        const dx = newX - lastPosRef.current.x;
-        const dy = newY - lastPosRef.current.y;
-        const dz = newZ - lastPosRef.current.z;
-        velocityRef.current.set(dx / dt, dy / dt, dz / dt);
-        lastDeltaRef.current.set(dx, dy, dz);
+
+      // Coalesced events carry the intermediate moves the browser batched into
+      // this one. Feeding them all to the velocity window makes it denser and
+      // better-timed than the single delta this handler would otherwise see.
+      const coalesced =
+        typeof event.getCoalescedEvents === "function"
+          ? event.getCoalescedEvents()
+          : [];
+      const points = coalesced.length ? coalesced : [event];
+
+      const samples = velocitySamplesRef.current;
+      let latest: { x: number; y: number; z: number } | null = null;
+      for (const point of points) {
+        const pos = toWorld(point.clientX, point.clientY);
+        // event.timeStamp shares performance.now()'s time origin in practice,
+        // but rebasing each coalesced stamp off `now` keeps every sample on one
+        // clock even where it doesn't.
+        samples.push({
+          t: now - (event.timeStamp - point.timeStamp),
+          x: pos.x,
+          y: pos.y,
+          z: pos.z,
+        });
+        latest = pos;
       }
-      lastTimeRef.current = now;
+      if (samples.length > MAX_VELOCITY_SAMPLES) {
+        samples.splice(0, samples.length - MAX_VELOCITY_SAMPLES);
+      }
+      if (!latest) return;
+
+      const { x: newX, y: newY, z: newZ } = latest;
+
+      sampleVelocity(samples, now, velocityRef.current);
+      lastDeltaRef.current.set(
+        newX - lastPosRef.current.x,
+        newY - lastPosRef.current.y,
+        newZ - lastPosRef.current.z,
+      );
       lastPosRef.current.set(newX, newY, newZ);
 
       // Stash target — useFrame applies it next R3F frame.
@@ -413,12 +488,24 @@ export function useDrag(
         y: finalPos.y - dragStartPosRef.current.y,
         z: finalPos.z - dragStartPosRef.current.z,
       };
+      // Re-evaluate against the release time rather than reusing the last
+      // pointermove's figure: samples outside the window get dropped, so
+      // lifting after a pause releases at rest instead of inheriting whatever
+      // speed the pointer last arrived with.
+      sampleVelocity(
+        velocitySamplesRef.current,
+        performance.now(),
+        velocityRef.current,
+      );
+      velocitySamplesRef.current = [];
       const vel = velocityRef.current;
 
       // Read spring tuning from dragTransition (if user provided one).
       const dt = cur.dragTransition as Record<string, unknown> | undefined;
-      const userStiffness = typeof dt?.stiffness === "number" ? dt.stiffness : undefined;
-      const userDamping = typeof dt?.damping === "number" ? dt.damping : undefined;
+      const userStiffness =
+        typeof dt?.stiffness === "number" ? dt.stiffness : undefined;
+      const userDamping =
+        typeof dt?.damping === "number" ? dt.damping : undefined;
 
       if (cur.dragSnapToOrigin) {
         lastFrameTimeRef.current = performance.now();
