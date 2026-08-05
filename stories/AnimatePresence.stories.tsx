@@ -17,11 +17,13 @@ const meta = {
   },
   tags: ["autodocs"],
   decorators: [
-    (Story) => (
+    (Story, context) => (
       <div
         style={{ width: "100vw", height: "100vh", backgroundColor: "#121212" }}
       >
+        {/* <Scene controls={context?.globals?.orbit || false}> */}
         <Story />
+        {/* </Scene> */}
       </div>
     ),
   ],
@@ -44,7 +46,8 @@ export const ToggleMesh: Story = {
       },
     },
   },
-  render: () => {
+  decorators: [],
+  render: (ars, context) => {
     const [show, setShow] = useState(true);
 
     return (
@@ -72,7 +75,7 @@ export const ToggleMesh: Story = {
             {show ? "Remove" : "Add"}
           </button>
         </div>
-        <Scene>
+        <Scene controls={context?.globals?.orbit || false}>
           <AnimatePresence>
             {show && (
               <motion.mesh
@@ -101,7 +104,7 @@ export const ToggleWithPosition: Story = {
       },
     },
   },
-  render: () => {
+  render: (ars, context) => {
     const [show, setShow] = useState(true);
 
     return (
@@ -129,7 +132,7 @@ export const ToggleWithPosition: Story = {
             {show ? "Remove" : "Add"}
           </button>
         </div>
-        <Scene>
+        <Scene controls={context?.globals?.orbit || false}>
           <AnimatePresence>
             {show && (
               <motion.mesh
@@ -159,7 +162,7 @@ export const SwapMeshes: Story = {
       },
     },
   },
-  render: () => {
+  render: (ars, context) => {
     const [shape, setShape] = useState<"box" | "sphere">("box");
 
     return (
@@ -187,7 +190,7 @@ export const SwapMeshes: Story = {
             Switch to {shape === "box" ? "Sphere" : "Box"}
           </button>
         </div>
-        <Scene>
+        <Scene controls={context?.globals?.orbit || false}>
           <AnimatePresence>
             {shape === "box" ? (
               <motion.mesh
@@ -228,7 +231,7 @@ export const WaitMode: Story = {
       },
     },
   },
-  render: () => {
+  render: (ars, context) => {
     const [shape, setShape] = useState<"box" | "sphere">("box");
 
     return (
@@ -256,7 +259,7 @@ export const WaitMode: Story = {
             Switch to {shape === "box" ? "Sphere" : "Box"}
           </button>
         </div>
-        <Scene>
+        <Scene controls={context?.globals?.orbit || false}>
           <AnimatePresence mode="wait">
             {shape === "box" ? (
               <motion.mesh
@@ -297,7 +300,7 @@ export const MultipleItems: Story = {
       },
     },
   },
-  render: () => {
+  render: (ars, context) => {
     const [items, setItems] = useState([0, 1, 2]);
     const nextId = useRef(3);
     const nextIdRef = nextId;
@@ -355,7 +358,7 @@ export const MultipleItems: Story = {
             </button>
           ))}
         </div>
-        <Scene>
+        <Scene controls={context?.globals?.orbit || false}>
           <AnimatePresence>
             {items.map((id, index) => (
               <motion.mesh
@@ -395,7 +398,7 @@ export const MaterialExit: Story = {
       },
     },
   },
-  render: () => {
+  render: (ars, context) => {
     const [show, setShow] = useState(true);
 
     return (
@@ -423,7 +426,7 @@ export const MaterialExit: Story = {
             {show ? "Remove" : "Add"}
           </button>
         </div>
-        <Scene>
+        <Scene controls={context?.globals?.orbit || false}>
           <AnimatePresence>
             {show && (
               <motion.mesh

@@ -18,11 +18,11 @@ const meta = {
   },
   tags: ["autodocs"],
   decorators: [
-    (Story) => (
+    (Story, context) => (
       <div
         style={{ width: "100vw", height: "100vh", backgroundColor: "#121212" }}
       >
-        <Scene>
+        <Scene controls={context?.globals?.orbit || false}>
           <Story />
         </Scene>
       </div>

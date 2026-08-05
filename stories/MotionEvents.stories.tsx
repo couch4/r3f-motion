@@ -81,7 +81,7 @@ export const OnAnimationStart: Story = {
       },
     },
   },
-  render: () => {
+  render: (ars, context) => {
     const [status, setStatus] = useState<string | null>("false");
 
     const handleStart = (variant?: string) => {
@@ -107,7 +107,7 @@ export const OnAnimationStart: Story = {
             __html: ` Animation Started: <strong>${status}</strong>`,
           }}
         ></div>
-        <Scene>
+        <Scene controls={context?.globals?.orbit || false}>
           <motion.mesh
             initial="inactive"
             animate="active"
@@ -143,7 +143,7 @@ export const OnAnimationUpdate: Story = {
       },
     },
   },
-  render: () => {
+  render: (ars, context) => {
     const [status, setStatus] = useState<string | null>("false");
 
     const handleUpdate = (value?: string, variant?: string) => {
@@ -171,7 +171,7 @@ export const OnAnimationUpdate: Story = {
             __html: `Animation updating: <strong>${status}</strong>`,
           }}
         ></div>
-        <Scene>
+        <Scene controls={context?.globals?.orbit || false}>
           <motion.mesh
             initial="inactive"
             animate="active"
@@ -207,7 +207,7 @@ export const OnAnimationComplete: Story = {
       },
     },
   },
-  render: () => {
+  render: (ars, context) => {
     const [status, setStatus] = useState<string | null>("false");
 
     const handleComplete = (variant?: string) => {
@@ -233,7 +233,7 @@ export const OnAnimationComplete: Story = {
             __html: ` Animation Complete: <strong>${status}</strong>`,
           }}
         ></div>
-        <Scene>
+        <Scene controls={context?.globals?.orbit || false}>
           <motion.mesh
             initial={{ scale: 0, rotateY: 0 }}
             animate="active"
@@ -271,7 +271,7 @@ export const OnAnimationCycleVariants: Story = {
       },
     },
   },
-  render: () => {
+  render: (ars, context) => {
     const [startStatus, setStartStatus] = useState<string | null>("false");
     const [status, setStatus] = useState<string | null>("false");
     const [currentStep, setCurrentStep] = useState<number>(0);
@@ -306,7 +306,7 @@ export const OnAnimationCycleVariants: Story = {
             __html: ` Animation Start: <strong>${startStatus}</strong><br/>Animation Complete: <strong>${status}</strong> `,
           }}
         ></div>
-        <Scene>
+        <Scene controls={context?.globals?.orbit || false}>
           <motion.mesh
             initial="one"
             animate={steps[currentStep]}

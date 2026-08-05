@@ -10,11 +10,11 @@ const meta = {
   },
   tags: ["autodocs"],
   decorators: [
-    (Story) => (
+    (Story, context) => (
       <div
         style={{ width: "100vw", height: "100vh", backgroundColor: "#121212" }}
       >
-        <Scene controls={false}>
+        <Scene controls={context?.globals?.orbit || false}>
           <mesh>
             <boxGeometry args={[1, 1, 1]} />
             <meshStandardMaterial color="hotpink" />
